@@ -1,0 +1,22 @@
+{
+  "name": "XONIX NEON",
+  "short_name": "XonixNeon",
+  "description": "Retro Xonix game with neon aesthetics.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#08081a",
+  "theme_color": "#00ffca",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
