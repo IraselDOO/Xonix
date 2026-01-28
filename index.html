@@ -3,43 +3,63 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>XONIX NEON</title>
-    <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;700&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#00ffca">
+    <meta name="theme-color" content="#02020a">
     <link rel="apple-touch-icon" href="icon-192.png">
 </head>
 
 <body>
     <div id="game-wrapper">
-        <header id="game-header">
-            <div class="header-left">
-                <span class="neon-text">XONIX</span>
-            </div>
-            <div class="stats">
-                <div class="stat-item">A: <span id="area-percent">0</span>%</div>
-                <div class="stat-item">L: <span id="lives-count">3</span></div>
-                <div class="stat-item">S: <span id="score-val">000000</span></div>
-            </div>
-        </header>
-
-        <div id="screen-container">
+        <main id="screen-container">
             <canvas id="gameCanvas"></canvas>
             <div id="overlay" class="hidden">
                 <div id="message-box">
-                    <h2 id="status-title">GAME OVER</h2>
-                    <p id="status-info">Final Score: 0</p>
-                    <button id="restart-btn">REBOOT</button>
+                    <h2 id="status-title">SYSTEM HALT</h2>
+                    <p id="status-info">Integrity Lost</p>
+                    <button id="restart-btn">REBOOT SYSTEM</button>
                 </div>
             </div>
-        </div>
+        </main>
 
+        <aside id="game-sidebar">
+            <div class="sidebar-top">
+                <span class="neon-text">XONIX</span>
+                <span class="neon-text-small">NEON PROTOCOL</span>
+            </div>
+
+            <div class="stats-vertical">
+                <div class="stat-group">
+                    <label>Captured</label>
+                    <div class="stat-val"><span id="area-percent">0</span>%</div>
+                </div>
+                <div class="stat-group">
+                    <label>Hull Integrity</label>
+                    <div class="stat-val"><span id="lives-count">3</span></div>
+                </div>
+                <div class="stat-group">
+                    <label>Data Sync</label>
+                    <div class="stat-val score-full"><span id="score-val">000000</span></div>
+                </div>
+                <div class="stat-group">
+                    <label>Time Drift</label>
+                    <div class="stat-val"><span id="time-left">99</span></div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="version-tag">VER 2.4.2</div>
+                SWIPE DIRECTION<br>TO INITIATE TURN
+            </div>
+        </aside>
     </div>
     <script src="game.js"></script>
     <script>
