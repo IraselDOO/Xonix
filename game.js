@@ -28,7 +28,7 @@ class Game {
 
         this.grid = [];
         this.player = { x: 0, y: 0, dx: 0, dy: 0 };
-        this.nextDirection = null;
+        this.moveQueue = []; // Queue for turns
 
         this.seaEnemies = [];
         this.landEnemies = [];
@@ -94,15 +94,18 @@ class Game {
         this.player = { x: 0, y: 0, dx: 0, dy: 0 };
         this.nextDirection = null;
 
-        // Sea Enemies - Pixel based for smoothness
+        // Sea Enemies - Scatter initial positions
         this.seaEnemies = [];
         const seaEnemyCount = 1 + this.level;
         for (let i = 0; i < seaEnemyCount; i++) {
+            // Randomly scatter within the center sea area
+            const sx = (CONFIG.COLS / 4 + Math.random() * CONFIG.COLS / 2) * this.cs;
+            const sy = (CONFIG.ROWS / 4 + Math.random() * CONFIG.ROWS / 2) * this.cs;
             this.seaEnemies.push({
-                x: (CONFIG.COLS / 2) * this.cs,
-                y: (CONFIG.ROWS / 2) * this.cs,
-                dx: (Math.random() > 0.5 ? 2 : -2),
-                dy: (Math.random() > 0.5 ? 2 : -2)
+                x: sx,
+                y: sy,
+                dx: (Math.random() > 0.5 ? 2.2 : -2.2),
+                dy: (Math.random() > 0.5 ? 2.2 : -2.2)
             });
         }
 
@@ -112,7 +115,7 @@ class Game {
             const landEnemyCount = this.level >= 6 ? 2 : 1;
             for (let i = 0; i < landEnemyCount; i++) {
                 this.landEnemies.push({
-                    gx: 0,
+                    gx: i * 10, // Offset spawn
                     gy: 0,
                     dx: 1,
                     dy: 0
@@ -121,6 +124,8 @@ class Game {
         }
 
         this.timeLeft = CONFIG.TIME_LIMIT;
+        this.lastTick = performance.now();
+        this.accumulator = 0;
         this.calculateArea();
         this.updateStats();
     }
@@ -181,25 +186,35 @@ class Game {
         const nAbsX = Math.abs(dx);
         const nAbsY = Math.abs(dy);
 
+        let newDir;
         if (nAbsX > nAbsY) {
-            this.nextDirection = dx > 0 ? { dx: 1, dy: 0 } : { dx: -1, dy: 0 };
+            newDir = dx > 0 ? { dx: 1, dy: 0 } : { dx: -1, dy: 0 };
         } else {
-            this.nextDirection = dy > 0 ? { dx: 0, dy: 1 } : { dx: 0, dy: -1 };
+            newDir = dy > 0 ? { dx: 0, dy: 1 } : { dx: 0, dy: -1 };
+        }
+
+        // Buffer the turn
+        if (this.moveQueue.length < 2) {
+            this.moveQueue.push(newDir);
         }
     }
 
     handleInput(key) {
+        let newDir;
         switch (key) {
-            case 'arrowup': case 'w': this.nextDirection = { dx: 0, dy: -1 }; break;
-            case 'arrowdown': case 's': this.nextDirection = { dx: 0, dy: 1 }; break;
-            case 'arrowleft': case 'a': this.nextDirection = { dx: -1, dy: 0 }; break;
-            case 'arrowright': case 'd': this.nextDirection = { dx: 1, dy: 0 }; break;
+            case 'arrowup': case 'w': newDir = { dx: 0, dy: -1 }; break;
+            case 'arrowdown': case 's': newDir = { dx: 0, dy: 1 }; break;
+            case 'arrowleft': case 'a': newDir = { dx: -1, dy: 0 }; break;
+            case 'arrowright': case 'd': newDir = { dx: 1, dy: 0 }; break;
             case ' ':
                 if (this.grid[this.player.y][this.player.x] === CELL_TYPES.LAND) {
                     this.player.dx = 0; this.player.dy = 0;
-                    this.nextDirection = null;
+                    this.moveQueue = [];
                 }
-                break;
+                return;
+        }
+        if (newDir && this.moveQueue.length < 2) {
+            this.moveQueue.push(newDir);
         }
     }
 
@@ -218,14 +233,20 @@ class Game {
                 this.updateStats();
             }
 
-            if (this.nextDirection) {
-                const is180 = (this.player.dx === -this.nextDirection.dx && this.player.dx !== 0) ||
-                    (this.player.dy === -this.nextDirection.dy && this.player.dy !== 0);
+            // Process Turn Queue
+            if (this.moveQueue.length > 0) {
+                const head = this.moveQueue[0];
+                const is180 = (this.player.dx === -head.dx && this.player.dx !== 0) ||
+                    (this.player.dy === -head.dy && this.player.dy !== 0);
 
+                // Allow turn if it's not a 180, OR if we are on land (where 180 is fine)
                 if (!is180 || this.grid[this.player.y][this.player.x] === CELL_TYPES.LAND) {
-                    this.player.dx = this.nextDirection.dx;
-                    this.player.dy = this.nextDirection.dy;
-                    this.nextDirection = null;
+                    this.player.dx = head.dx;
+                    this.player.dy = head.dy;
+                    this.moveQueue.shift(); // Successfully turned
+                } else if (this.player.dx === head.dx && this.player.dy === head.dy) {
+                    // Already moving in this direction, clear it
+                    this.moveQueue.shift();
                 }
             }
 
@@ -434,9 +455,22 @@ class Game {
         this.ctx.shadowBlur = 0;
     }
 
-    gameLoop() {
-        this.update(); this.draw();
-        requestAnimationFrame(() => this.gameLoop());
+    gameLoop(now) {
+        if (!this.lastTime) this.lastTime = now;
+        const dt = now - this.lastTime;
+        this.lastTime = now;
+
+        // Fixed timestep logic (roughly 60 updates per second)
+        const step = 1000 / 60;
+        this.accumulator += dt;
+
+        while (this.accumulator >= step) {
+            this.update();
+            this.accumulator -= step;
+        }
+
+        this.draw();
+        requestAnimationFrame((t) => this.gameLoop(t));
     }
 }
 

@@ -72,6 +72,8 @@ canvas {
     box-shadow: 0 0 40px rgba(0, 242, 255, 0.15);
     border: 1px solid var(--glass-border);
     border-radius: 4px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
 }
 
 /* Sidebar - Premium Glassmorphism */
@@ -87,6 +89,36 @@ canvas {
     padding: 30px 20px;
     box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
     z-index: 10;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Ergonomic Mobile Landscape */
+@media screen and (max-height: 600px) and (orientation: landscape) {
+    #game-sidebar {
+        width: 160px;
+        padding: 15px 10px;
+    }
+
+    .sidebar-top {
+        margin-bottom: 20px;
+    }
+
+    .neon-text {
+        font-size: 1.4rem;
+        letter-spacing: 2px;
+    }
+
+    .stats-vertical {
+        gap: 15px;
+    }
+
+    .stat-val {
+        font-size: 1.4rem;
+    }
+
+    .stat-group label {
+        margin-bottom: 4px;
+    }
 }
 
 .sidebar-top {
@@ -99,6 +131,7 @@ canvas {
     font-weight: 700;
     font-size: 2rem;
     background: linear-gradient(to bottom, #fff, var(--neon-blue));
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     filter: drop-shadow(0 0 8px var(--neon-blue));
@@ -164,6 +197,7 @@ canvas {
 .score-full {
     font-size: 1.4rem;
     background: linear-gradient(45deg, #fff, var(--neon-blue));
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
