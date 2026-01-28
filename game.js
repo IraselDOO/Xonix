@@ -158,21 +158,33 @@ class Game {
         let dx = end.x - this.touchStart.x;
         let dy = end.y - this.touchStart.y;
 
-        if (window.innerHeight > window.innerWidth && window.innerWidth < 600) {
-            const temp = dx;
-            dx = dy;
-            dy = -temp;
-        }
-
         const absX = Math.abs(dx);
         const absY = Math.abs(dy);
 
-        if (Math.max(absX, absY) > this.minSwipeDist) {
-            if (absX > absY) {
-                this.nextDirection = dx > 0 ? { dx: 1, dy: 0 } : { dx: -1, dy: 0 };
-            } else {
-                this.nextDirection = dy > 0 ? { dx: 0, dy: 1 } : { dx: 0, dy: -1 };
+        // Check for TAP (short move)
+        if (Math.max(absX, absY) < this.minSwipeDist) {
+            if (this.grid[this.player.y][this.player.x] === CELL_TYPES.LAND) {
+                this.player.dx = 0;
+                this.player.dy = 0;
+                this.nextDirection = null;
             }
+            return;
+        }
+
+        // Correct for 90deg CW rotated viewport in portrait mobile
+        if (window.innerHeight > window.innerWidth) {
+            const tempX = dx;
+            dx = -dy; // Native Up (dy < 0) becomes Game Right (dx > 0)
+            dy = tempX; // Native Right (dx > 0) becomes Game Down (dy > 0)
+        }
+
+        const nAbsX = Math.abs(dx);
+        const nAbsY = Math.abs(dy);
+
+        if (nAbsX > nAbsY) {
+            this.nextDirection = dx > 0 ? { dx: 1, dy: 0 } : { dx: -1, dy: 0 };
+        } else {
+            this.nextDirection = dy > 0 ? { dx: 0, dy: 1 } : { dx: 0, dy: -1 };
         }
     }
 
