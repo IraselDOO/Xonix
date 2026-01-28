@@ -1,10 +1,9 @@
 /**
- * XONIX NEON - Pure Swipe & Landscape Mode
+ * XONIX NEON - Ultra Full Screen & Dynamic Grid
  */
 
 const CONFIG = {
-    COLS: 60, // Wide for landscape
-    ROWS: 40,
+    BASE_CELL_SIZE: 20, // Approximate cell size in pixels
     FPS: 60,
     MOVE_SPEED: 2,
     COLORS: {
@@ -24,6 +23,10 @@ class Game {
         this.ctx = this.canvas.getContext('2d');
 
         this.grid = [];
+        this.cols = 0;
+        this.rows = 0;
+        this.cs = 0; // calculated cell size
+
         this.player = { x: 0, y: 0, dx: 0, dy: 0, nextDx: 0, nextDy: 0 };
         this.enemies = [];
         this.frameCounter = 0;
@@ -35,7 +38,7 @@ class Game {
         this.isGameOver = false;
 
         this.touchStart = { x: 0, y: 0 };
-        this.minSwipeDist = 20; // Lowered for more sensitivity
+        this.minSwipeDist = 15;
 
         this.init();
     }
@@ -43,8 +46,10 @@ class Game {
     init() {
         this.resize();
         window.addEventListener('resize', () => {
-            // Delay resize slightly to handle rotation transitions
-            setTimeout(() => this.resize(), 100);
+            setTimeout(() => {
+                this.resize();
+                // We don't re-initLevel on resize to avoid losing progress
+            }, 100);
         });
         this.initEventListeners();
         this.initLevel();
@@ -52,32 +57,44 @@ class Game {
     }
 
     resize() {
-        const container = document.getElementById('screen-container');
-        const cw = container.clientWidth;
-        const ch = container.clientHeight;
+        const cw = window.innerWidth;
+        const ch = window.innerHeight;
 
-        const aspect = CONFIG.COLS / CONFIG.ROWS;
-        let finalW, finalH;
+        // Handle rotation in CSS (width/height swap)
+        const isPortrait = ch > cw && cw < 600;
+        const actualW = isPortrait ? ch : cw;
+        const actualH = isPortrait ? cw : ch;
 
-        if (cw / ch > aspect) {
-            finalH = ch;
-            finalW = ch * aspect;
-        } else {
-            finalW = cw;
-            finalH = cw / aspect;
+        this.canvas.width = actualW;
+        this.canvas.height = actualH;
+
+        // Calculate grid based on target cell size to fill screen
+        const tempCols = Math.floor(actualW / CONFIG.BASE_CELL_SIZE);
+        const tempRows = Math.floor(actualH / CONFIG.BASE_CELL_SIZE);
+
+        // Only update grid size if it's the first time or if it's significantly different
+        if (this.cols === 0) {
+            this.cols = tempCols;
+            this.rows = tempRows;
         }
 
-        this.canvas.width = finalW;
-        this.canvas.height = finalH;
-        this.cs = finalW / CONFIG.COLS;
+        this.cs = actualW / this.cols;
+        // Note: this.cs * this.rows might be slightly less than actualH, which is fine
     }
 
     initLevel() {
+        // Recalculate grid size on level init to match screen perfectly
+        const cw = this.canvas.width;
+        const ch = this.canvas.height;
+        this.cols = Math.floor(cw / CONFIG.BASE_CELL_SIZE);
+        this.rows = Math.floor(ch / CONFIG.BASE_CELL_SIZE);
+        this.cs = cw / this.cols;
+
         this.grid = [];
-        for (let y = 0; y < CONFIG.ROWS; y++) {
+        for (let y = 0; y < this.rows; y++) {
             this.grid[y] = [];
-            for (let x = 0; x < CONFIG.COLS; x++) {
-                const isBorder = x < 2 || x >= CONFIG.COLS - 2 || y < 2 || y >= CONFIG.ROWS - 2;
+            for (let x = 0; x < this.cols; x++) {
+                const isBorder = x < 2 || x >= this.cols - 2 || y < 2 || y >= this.rows - 2;
                 this.grid[y][x] = isBorder ? CELL_TYPES.LAND : CELL_TYPES.SEA;
             }
         }
@@ -86,8 +103,8 @@ class Game {
         const enemyCount = 1 + Math.floor(this.score / 2000);
         for (let i = 0; i < enemyCount; i++) {
             this.enemies.push({
-                x: (CONFIG.COLS / 2) * this.cs,
-                y: (CONFIG.ROWS / 2) * this.cs,
+                x: (this.cols / 2) * this.cs,
+                y: (this.rows / 2) * this.cs,
                 dx: (Math.random() > 0.5 ? 2.5 : -2.5),
                 dy: (Math.random() > 0.5 ? 2.5 : -2.5)
             });
@@ -99,9 +116,7 @@ class Game {
     initEventListeners() {
         window.addEventListener('keydown', (e) => this.handleInput(e.key.toLowerCase()));
 
-        // Global Swipe Surface (the whole wrapper)
         const surface = document.getElementById('game-wrapper');
-
         surface.addEventListener('touchstart', (e) => {
             this.touchStart.x = e.touches[0].clientX;
             this.touchStart.y = e.touches[0].clientY;
@@ -128,9 +143,7 @@ class Game {
         let dx = end.x - this.touchStart.x;
         let dy = end.y - this.touchStart.y;
 
-        // Correct for 90deg rotation if in portrait mobile
         if (window.innerHeight > window.innerWidth && window.innerWidth < 600) {
-            // Swap and invert because of CSS rotation
             const temp = dx;
             dx = dy;
             dy = -temp;
@@ -158,7 +171,7 @@ class Game {
             case 'arrowleft': case 'a': case 'left': nextDx = -1; nextDy = 0; break;
             case 'arrowright': case 'd': case 'right': nextDx = 1; nextDy = 0; break;
             case 'stop': case ' ':
-                if (this.grid[this.player.y][this.player.x] === CELL_TYPES.LAND) {
+                if (this.grid[this.player.y] && this.grid[this.player.y][this.player.x] === CELL_TYPES.LAND) {
                     this.player.nextDx = 0; this.player.nextDy = 0;
                 }
                 return;
@@ -184,7 +197,7 @@ class Game {
             const nextX = this.player.x + this.player.dx;
             const nextY = this.player.y + this.player.dy;
 
-            if (nextX >= 0 && nextX < CONFIG.COLS && nextY >= 0 && nextY < CONFIG.ROWS) {
+            if (nextX >= 0 && nextX < this.cols && nextY >= 0 && nextY < this.rows) {
                 const nextCell = this.grid[nextY][nextX];
                 if (nextCell === CELL_TYPES.SEA) {
                     this.grid[this.player.y][this.player.x] = (this.grid[this.player.y][this.player.x] === CELL_TYPES.LAND) ? CELL_TYPES.LAND : CELL_TYPES.TRAIL;
@@ -204,13 +217,14 @@ class Game {
             }
         }
 
+        const cs = this.cs;
         this.enemies.forEach(e => {
             const nextX = e.x + e.dx;
             const nextY = e.y + e.dy;
-            const gx = Math.floor(nextX / this.cs), gy = Math.floor(nextY / this.cs);
+            const gx = Math.floor(nextX / cs), gy = Math.floor(nextY / cs);
 
-            if (gx < 0 || gx >= CONFIG.COLS || (this.grid[Math.floor(e.y / this.cs)] && this.grid[Math.floor(e.y / this.cs)][gx] === CELL_TYPES.LAND)) e.dx *= -1;
-            if (gy < 0 || gy >= CONFIG.ROWS || (this.grid[gy] && this.grid[gy][Math.floor(e.x / this.cs)] === CELL_TYPES.LAND)) e.dy *= -1;
+            if (gx < 0 || gx >= this.cols || (this.grid[Math.floor(e.y / cs)] && this.grid[Math.floor(e.y / cs)][gx] === CELL_TYPES.LAND)) e.dx *= -1;
+            if (gy < 0 || gy >= this.rows || (this.grid[gy] && this.grid[gy][Math.floor(e.x / cs)] === CELL_TYPES.LAND)) e.dy *= -1;
 
             if (this.grid[gy] && this.grid[gy][gx] === CELL_TYPES.TRAIL) this.handleDeath();
             e.x += e.dx; e.y += e.dy;
@@ -224,20 +238,20 @@ class Game {
 
     handleDeath() {
         this.lives--;
-        for (let y = 0; y < CONFIG.ROWS; y++) for (let x = 0; x < CONFIG.COLS; x++) if (this.grid[y][x] === CELL_TYPES.TRAIL) this.grid[y][x] = CELL_TYPES.SEA;
+        for (let y = 0; y < this.rows; y++) for (let x = 0; x < this.cols; x++) if (this.grid[y][x] === CELL_TYPES.TRAIL) this.grid[y][x] = CELL_TYPES.SEA;
         this.player = { x: 0, y: 0, dx: 0, dy: 0, nextDx: 0, nextDy: 0 };
         this.updateStats();
         if (this.lives <= 0) this.gameOver();
     }
 
     captureArea() {
-        for (let y = 0; y < CONFIG.ROWS; y++) for (let x = 0; x < CONFIG.COLS; x++) if (this.grid[y][x] === CELL_TYPES.TRAIL) this.grid[y][x] = CELL_TYPES.LAND;
+        for (let y = 0; y < this.rows; y++) for (let x = 0; x < this.cols; x++) if (this.grid[y][x] === CELL_TYPES.TRAIL) this.grid[y][x] = CELL_TYPES.LAND;
 
         const mask = this.grid.map(row => row.map(c => c === CELL_TYPES.SEA));
         this.enemies.forEach(e => this.floodFill(mask, Math.floor(e.x / this.cs), Math.floor(e.y / this.cs)));
 
-        for (let y = 0; y < CONFIG.ROWS; y++) {
-            for (let x = 0; x < CONFIG.COLS; x++) {
+        for (let y = 0; y < this.rows; y++) {
+            for (let x = 0; x < this.cols; x++) {
                 if (this.grid[y][x] === CELL_TYPES.SEA && mask[y][x]) {
                     this.grid[y][x] = CELL_TYPES.LAND;
                     this.score += 10;
@@ -252,7 +266,7 @@ class Game {
         const stack = [[x, y]];
         while (stack.length > 0) {
             const [cx, cy] = stack.pop();
-            if (cx < 0 || cx >= CONFIG.COLS || cy < 0 || cy >= CONFIG.ROWS) continue;
+            if (cx < 0 || cx >= this.cols || cy < 0 || cy >= this.rows) continue;
             if (!mask[cy][cx]) continue;
             mask[cy][cx] = false;
             stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
@@ -260,7 +274,7 @@ class Game {
     }
 
     calculateArea() {
-        let total = CONFIG.COLS * CONFIG.ROWS, land = 0;
+        let total = this.cols * this.rows, land = 0;
         for (let row of this.grid) for (let c of row) if (c === CELL_TYPES.LAND) land++;
         this.currentAreaPercent = Math.floor((land / total) * 100);
     }
@@ -282,10 +296,10 @@ class Game {
 
         this.ctx.fillStyle = CONFIG.COLORS.LAND;
         this.ctx.strokeStyle = '#2a2a5a';
-        for (let y = 0; y < CONFIG.ROWS; y++) {
-            for (let x = 0; x < CONFIG.COLS; x++) {
+        for (let y = 0; y < this.rows; y++) {
+            for (let x = 0; x < this.cols; x++) {
                 if (this.grid[y][x] === CELL_TYPES.LAND) {
-                    this.ctx.fillRect(x * cs + 1, y * cs + 1, cs - 2, cs - 2);
+                    this.ctx.fillRect(x * cs, y * cs, cs, cs);
                     this.ctx.strokeRect(x * cs, y * cs, cs, cs);
                 }
             }
@@ -293,7 +307,9 @@ class Game {
 
         this.ctx.shadowBlur = 10; this.ctx.shadowColor = CONFIG.COLORS.TRAIL;
         this.ctx.fillStyle = CONFIG.COLORS.TRAIL;
-        for (let y = 0; y < CONFIG.ROWS; y++) for (let x = 0; x < CONFIG.COLS; x++) if (this.grid[y][x] === CELL_TYPES.TRAIL) this.ctx.fillRect(x * cs + 1, y * cs + 1, cs - 2, cs - 2);
+        for (let y = 0; y < this.rows; y++) for (let x = 0; x < this.cols; x++) if (this.grid[y][x] === CELL_TYPES.TRAIL) {
+            this.ctx.fillRect(x * cs + cs * 0.1, y * cs + cs * 0.1, cs * 0.8, cs * 0.8);
+        }
 
         const px = this.player.x * cs, py = this.player.y * cs;
         this.ctx.fillRect(px, py, cs, cs);
